@@ -76,6 +76,7 @@
 
     var topic = 'ENGO551_SAHIL/MY_TEMPERATURE'; // Set to the MQTT topic you want to publish messages to
     var clientId = "client_" + Math.random().toString(36).substr(2, 9);
+
     var client;
 
     function startConnection() {
@@ -83,7 +84,7 @@
     document.getElementById("buttonContainer").style.display = "flex";
 
     // Update the MQTT broker URL to use wss:// for secure WebSocket connection
-    client = new Paho.MQTT.Client("wss://test.mosquitto.org", Number(8081), clientId);
+    client = new Paho.MQTT.Client("wss://test.mosquitto.org", "8081", clientId);
 
     var connectOptions = {
         onSuccess: function () {
