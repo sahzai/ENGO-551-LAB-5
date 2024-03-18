@@ -86,13 +86,36 @@
     var clientId = "client_" + Math.random().toString(36).substr(2, 9);
     console.log("clientId:", clientId);
 
-    var port = 8081;
+    // Specify the MQTT broker URL without the protocol
+    var brokerUrl = "broker.emqx.io";
+    var port = 8084;
 
-    // Corrected MQTT broker URL format to use wss:// for secure WebSocket connection
-    client = new Paho.MQTT.Client("test.mosquitto.org", port, "/mqtt", clientId);
+    // Manually create the WebSocket using the wss protocol
+    var wsProtocol = "wss:";
+    var wsURL = `${wsProtocol}//${brokerUrl}:${port}/mqtt`;
+    var wsOptions = {
+        keepalive: 60,
+        clientId: clientId,
+        protocolId: 'MQTT',
+        protocolVersion: 4,
+        clean: true,
+        reconnectPeriod: 1000,
+        connectTimeout: 30 * 1000,
+        will: {
+            topic: "WillTopic",
+            payload: "Connection Closed abnormally..!",
+            qos: 0,
+            retain: false
+        },
+        rejectUnauthorized: false
+    };
+
+    var webSocket = new WebSocket(wsURL, wsOptions);
+
+    // Pass the WebSocket to the Paho MQTT client
+    client = new Paho.MQTT.Client(webSocket, clientId);
 
     var connectOptions = {
-        
         onSuccess: function () {
             console.log('Connected to MQTT broker');
             document.getElementById("startSendingLocationButton").disabled = false;
@@ -106,6 +129,7 @@
 
     client.connect(connectOptions);
 }
+
 
 
 
