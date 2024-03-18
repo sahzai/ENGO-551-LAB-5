@@ -52,7 +52,7 @@
 
 <div id="connectionInfo">
     <p id="hostInfo">MQTT Broker Host: test.mosquitto.org</p>
-    <p id="portInfo">MQTT Broker Port: 8080</p>
+    <p id="portInfo">MQTT Broker Port: 8081</p>
     <button class="button" id="startConnectionButton">Start Connection</button>
 </div>
 
@@ -81,7 +81,7 @@
         document.getElementById("connectionInfo").style.display = "none";
         document.getElementById("buttonContainer").style.display = "flex";
 
-        client = new Paho.MQTT.Client("test.mosquitto.org", Number(8080), clientId);
+        client = new Paho.MQTT.Client("test.mosquitto.org", Number(8081), clientId);
 
         var connectOptions = {
             onSuccess: function () {
