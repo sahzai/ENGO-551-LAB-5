@@ -86,7 +86,10 @@
     var clientId = "client_" + Math.random().toString(36).substr(2, 9);
     console.log("clientId:", clientId);
 
-    client = new Paho.MQTT.Client("wss://test.mosquitto.org", "8081", clientId);
+    // Convert the port to a number
+    var port = 8081;
+
+    client = new Paho.MQTT.Client("wss://test.mosquitto.org", port, clientId);
 
     var connectOptions = {
         onSuccess: function () {
