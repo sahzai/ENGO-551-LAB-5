@@ -69,31 +69,28 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 <script>
     var map = L.map('map').setView([51.0447, -114.0719], 11);
+var client; // Declaring client variable in a global scope
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
-    var topic = 'ENGO551_SAHIL/MY_TEMPERATURE'; // Set to the MQTT topic you want to publish messages to
-    var clientId = "client_" + Math.random().toString(36).substr(2, 9);
+var topic = 'ENGO551_SAHIL/MY_TEMPERATURE';
+var clientId = "client_" + Math.random().toString(36).substr(2, 9);
 
-    var client;
-
-    function startConnection() {
+function startConnection() {
     document.getElementById("connectionInfo").style.display = "none";
     document.getElementById("buttonContainer").style.display = "flex";
 
-    var clientId = "client_" + Math.random().toString(36).substr(2, 9);
+    clientId = "client_" + Math.random().toString(36).substr(2, 9);
     console.log("clientId:", clientId);
 
-    // Specify the MQTT broker URL with the wss protocol
     var host = "broker.emqx.io";
     var port = 8084;
     
-    // Construct the WebSocket URL
     var brokerUrl = "wss://" + host + ":" + port + "/mqtt";
 
-    var client = new Paho.MQTT.Client(brokerUrl, clientId);
+    client = new Paho.MQTT.Client(brokerUrl, clientId);
 
     var connectOptions = {
         onSuccess: function () {
@@ -110,119 +107,122 @@
     client.connect(connectOptions);
 }
 
+function endConnection() {
+    try {
+        client.disconnect();
+    } catch (error) {
+        console.error('Error disconnecting from MQTT broker:', error);
+    } finally {
+        document.getElementById("connectionInfo").style.display = "block";
+        document.getElementById("buttonContainer").style.display = "none";
+        clearMarkers();
 
-    function endConnection() {
-        try {
-            client.disconnect();
-        } catch (error) {
-            console.error('Error disconnecting from MQTT broker:', error);
-        } finally {
-            document.getElementById("connectionInfo").style.display = "block";
-            document.getElementById("buttonContainer").style.display = "none";
-            clearMarkers();
-
-            // Reset button states
-            document.getElementById("startConnectionButton").disabled = false;
-            document.getElementById("startSendingLocationButton").disabled = true;
-            document.getElementById("stopSendingLocationButton").disabled = true;
-            document.getElementById("endConnectionButton").disabled = true;
-        }
-    }
-
-    function startSendingLocation() {
-        getLocation();
-        setInterval(getLocation, 5000); // Update location every 5 seconds
+        document.getElementById("startConnectionButton").disabled = false;
         document.getElementById("startSendingLocationButton").disabled = true;
-        document.getElementById("stopSendingLocationButton").disabled = false;
-    }
-
-    function stopSendingLocation() {
-        clearInterval();
-        document.getElementById("startSendingLocationButton").disabled = false;
         document.getElementById("stopSendingLocationButton").disabled = true;
+        document.getElementById("endConnectionButton").disabled = true;
+    }
+}
+
+function startSendingLocation() {
+    getLocation();
+    setInterval(getLocation, 5000);
+    document.getElementById("startSendingLocationButton").disabled = true;
+    document.getElementById("stopSendingLocationButton").disabled = false;
+}
+
+function stopSendingLocation() {
+    clearInterval();
+    document.getElementById("startSendingLocationButton").disabled = false;
+    document.getElementById("stopSendingLocationButton").disabled = true;
+}
+
+function getLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(updateMapLocation);
+    } else {
+        alert('Geolocation is not supported by this browser.');
+    }
+}
+
+function updateMapLocation(position) {
+    if (!client) {
+        console.error('Client is not defined.');
+        return;
     }
 
-    function getLocation() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(updateMapLocation);
-        } else {
-            alert('Geolocation is not supported by this browser.');
+    var latitude = position.coords.latitude;
+    var longitude = position.coords.longitude;
+    var timestamp = new Date().toISOString();
+    var temperature = getRandomTemperature(-40, 40);
+
+    map.setView([latitude, longitude], 15);
+
+    var geoJsonMessage = {
+        type: "Feature",
+        geometry: {
+            type: "Point",
+            coordinates: [longitude, latitude]
+        },
+        properties: {
+            temperature: temperature,
+            timestamp: timestamp
         }
-    }
+    };
 
-    function updateMapLocation(position) {
-        var latitude = position.coords.latitude;
-        var longitude = position.coords.longitude;
-        var timestamp = new Date().toISOString();
-        var temperature = getRandomTemperature(-40, 40);
+    var messageObject = new Paho.MQTT.Message(JSON.stringify(geoJsonMessage));
+    messageObject.destinationName = topic;
+    client.send(messageObject);
+    console.log(`Message published to topic ${topic}:`, JSON.stringify(geoJsonMessage));
 
-        map.setView([latitude, longitude], 15);
+    L.marker([latitude, longitude]).addTo(map)
+        .bindPopup(`Temperature: ${temperature}°C<br>Coordinates: ${latitude}, ${longitude}<br>Timestamp: ${timestamp}`)
+        .openPopup();
+}
 
-        var geoJsonMessage = {
-            type: "Feature",
-            geometry: {
-                type: "Point",
-                coordinates: [longitude, latitude]
-            },
-            properties: {
-                temperature: temperature,
-                timestamp: timestamp
+function subscribeToTopic() {
+    client.subscribe(topic);
+    console.log('Subscribed to topic:', topic);
+
+    client.onMessageArrived = function (message) {
+        var payload = message.payloadString;
+        console.log('Message received:', payload);
+
+        try {
+            var geoJsonMessage = JSON.parse(payload);
+
+            if (geoJsonMessage.type === "Feature" && geoJsonMessage.geometry && geoJsonMessage.geometry.type === "Point") {
+                var coordinates = geoJsonMessage.geometry.coordinates;
+                var temperature = geoJsonMessage.properties.temperature;
+                var timestamp = geoJsonMessage.properties.timestamp;
+
+                L.marker([coordinates[1], coordinates[0]]).addTo(map)
+                    .bindPopup(`Received Temperature: ${temperature}°C<br>Coordinates: ${coordinates[1]}, ${coordinates[0]}<br>Timestamp: ${timestamp}`)
+                    .openPopup();
             }
-        };
+        } catch (error) {
+            console.error('Error parsing GeoJSON message:', error);
+        }
+    };
+}
 
-        var messageObject = new Paho.MQTT.Message(JSON.stringify(geoJsonMessage));
-        messageObject.destinationName = topic;
-        client.send(messageObject);
-        console.log(`Message published to topic ${topic}:`, JSON.stringify(geoJsonMessage));
+function clearMarkers() {
+    map.eachLayer(function (layer) {
+        if (layer instanceof L.Marker) {
+            map.removeLayer(layer);
+        }
+    });
+}
 
-        L.marker([latitude, longitude]).addTo(map)
-            .bindPopup(`Temperature: ${temperature}°C<br>Coordinates: ${latitude}, ${longitude}<br>Timestamp: ${timestamp}`)
-            .openPopup();
-    }
+function getRandomTemperature(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
-    function subscribeToTopic() {
-        client.subscribe(topic);
-        console.log('Subscribed to topic:', topic);
+document.getElementById("startConnectionButton").addEventListener("click", startConnection);
+document.getElementById("startSendingLocationButton").addEventListener("click", startSendingLocation);
+document.getElementById("stopSendingLocationButton").addEventListener("click", stopSendingLocation);
+document.getElementById("endConnectionButton").addEventListener("click", endConnection);
 
-        client.onMessageArrived = function (message) {
-            var payload = message.payloadString;
-            console.log('Message received:', payload);
-
-            try {
-                var geoJsonMessage = JSON.parse(payload);
-
-                if (geoJsonMessage.type === "Feature" && geoJsonMessage.geometry && geoJsonMessage.geometry.type === "Point") {
-                    var coordinates = geoJsonMessage.geometry.coordinates;
-                    var temperature = geoJsonMessage.properties.temperature;
-                    var timestamp = geoJsonMessage.properties.timestamp;
-
-                    L.marker([coordinates[1], coordinates[0]]).addTo(map)
-                        .bindPopup(`Received Temperature: ${temperature}°C<br>Coordinates: ${coordinates[1]}, ${coordinates[0]}<br>Timestamp: ${timestamp}`)
-                        .openPopup();
-                }
-            } catch (error) {
-                console.error('Error parsing GeoJSON message:', error);
-            }
-        };
-    }
-
-    function clearMarkers() {
-        map.eachLayer(function (layer) {
-            if (layer instanceof L.Marker) {
-                map.removeLayer(layer);
-            }
-        });
-    }
-
-    function getRandomTemperature(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
-
-    // Button event listeners
-    document.getElementById("startConnectionButton").addEventListener("click", startConnection);
-    document.getElementById("startSendingLocationButton").addEventListener("click", startSendingLocation);
-    document.getElementById("stopSendingLocationButton").addEventListener("click", stopSendingLocation);
-    document.getElementById("endConnectionButton").addEventListener("click", endConnection);
 
 </script>
 
