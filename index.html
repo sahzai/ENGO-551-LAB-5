@@ -180,6 +180,9 @@
             .addTo(map);
 
         markers.push(marker);
+
+        // Stop sending locations after one message
+        stopSendingLocation();
     }
 
     function subscribeToTopic() {
@@ -221,12 +224,10 @@
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
-    // Update map size on window resize
     map.on('resize', function() {
         map.invalidateSize();
     });
 
-    // Close popup when clicking outside
     map.on('click', function(e) {
         map.closePopup();
     });
