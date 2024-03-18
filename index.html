@@ -83,8 +83,10 @@
     document.getElementById("connectionInfo").style.display = "none";
     document.getElementById("buttonContainer").style.display = "flex";
 
-    // Update the MQTT broker URL to use wss:// for secure WebSocket connection
-    client = new Paho.MQTT.Client("wss://test.mosquitto.org", Number(8081), clientId);
+    var clientId = "client_" + Math.random().toString(36).substr(2, 9);
+    console.log("clientId:", clientId);
+
+    client = new Paho.MQTT.Client("wss://test.mosquitto.org", "8081", clientId);
 
     var connectOptions = {
         onSuccess: function () {
@@ -100,6 +102,7 @@
 
     client.connect(connectOptions);
 }
+
 
 
     function endConnection() {
