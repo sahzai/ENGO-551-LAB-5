@@ -86,10 +86,10 @@
     var clientId = "client_" + Math.random().toString(36).substr(2, 9);
     console.log("clientId:", clientId);
 
-    // Convert the port to a number
     var port = 8084;
 
-    client = new Paho.MQTT.Client("ws://broker.emqx.io", Number(port), clientId.toString());
+    // Corrected MQTT broker URL format to use wss:// for secure WebSocket connection
+    client = new Paho.MQTT.Client("wss://broker.emqx.io", port, "/mqtt", clientId);
 
     var connectOptions = {
         onSuccess: function () {
@@ -105,6 +105,7 @@
 
     client.connect(connectOptions);
 }
+
 
 
 
