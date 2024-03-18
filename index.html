@@ -86,16 +86,15 @@
     var clientId = "client_" + Math.random().toString(36).substr(2, 9);
     console.log("clientId:", clientId);
 
-    var port = 8084;
+    var port = 8081;
 
     // Corrected MQTT broker URL format to use wss:// for secure WebSocket connection
-    client = new Paho.MQTT.Client("broker.emqx.io", port, "/mqtt", clientId);
+    client = new Paho.MQTT.Client("wss://test.mosquitto.org", port, "/mqtt", clientId);
 
     var connectOptions = {
         
         onSuccess: function () {
             console.log('Connected to MQTT broker');
-            protocol = 'wss';
             document.getElementById("startSendingLocationButton").disabled = false;
             document.getElementById("endConnectionButton").disabled = false;
             subscribeToTopic();
