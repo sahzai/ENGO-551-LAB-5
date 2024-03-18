@@ -86,37 +86,14 @@
     var clientId = "client_" + Math.random().toString(36).substr(2, 9);
     console.log("clientId:", clientId);
 
-    // Specify the MQTT broker URL without the protocol
-    var brokerUrl = "broker.emqx.io";
+    // Specify the MQTT broker URL with the wss protocol
+    var host = "broker.emqx.io";
     var port = 8084;
+    
+    // Construct the WebSocket URL
+    var brokerUrl = "wss://" + host + ":" + port + "/mqtt";
 
-    // Manually create the WebSocket using the wss protocol
-    var wsProtocol = "wss:";
-    var wsURL = `${wsProtocol}//${brokerUrl}:${port}/mqtt`;
-
-    // WebSocket options
-    var wsOptions = {
-        keepalive: 60,
-        clientId: clientId,
-        protocolId: 'MQTT',
-        protocolVersion: 4,
-        clean: true,
-        reconnectPeriod: 1000,
-        connectTimeout: 30 * 1000,
-        will: {
-            topic: "WillTopic",
-            payload: "Connection Closed abnormally..!",
-            qos: 0,
-            retain: false
-        },
-        rejectUnauthorized: false
-    };
-
-    // Create the WebSocket
-    var webSocket = new WebSocket(wsURL, ["mqtt"], wsOptions);
-
-    // Create the Paho MQTT client
-    client = new Paho.MQTT.Client(webSocket, clientId);
+    var client = new Paho.MQTT.Client(brokerUrl, clientId);
 
     var connectOptions = {
         onSuccess: function () {
@@ -132,9 +109,6 @@
 
     client.connect(connectOptions);
 }
-
-
-
 
 
     function endConnection() {
