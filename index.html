@@ -92,8 +92,10 @@
     client = new Paho.MQTT.Client("broker.emqx.io", port, "/mqtt", clientId);
 
     var connectOptions = {
+        
         onSuccess: function () {
             console.log('Connected to MQTT broker');
+            protocol = 'wss';
             document.getElementById("startSendingLocationButton").disabled = false;
             document.getElementById("endConnectionButton").disabled = false;
             subscribeToTopic();
