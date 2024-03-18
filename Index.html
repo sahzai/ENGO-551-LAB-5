@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Project 5: Sahil Zaidi</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <style>
+        body {
+            background-color: #1f1f1f;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            height: 600px; 
+            margin-bottom: 20px;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+        }
+
+        #connectionInfo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1 style="text-align: center; margin-top: 20px;">Project 5: xxx</h1>
+
+<div id="connectionInfo">
+    <p id="hostInfo">MQTT Broker Host: test.mosquitto.org</p>
+    <p id="portInfo">MQTT Broker Port: 8080</p>
+    <button class="button" id="startConnectionButton">Start Connection</button>
+</div>
+
+<div id="map"></div>
+
+<div class="button-container" id="buttonContainer" style="display: none;">
+    <button class="button" id="startSendingLocationButton" disabled>Start Sending Location</button>
+    <button class="button" id="stopSendingLocationButton" disabled>Stop Sending Location</button>
+    <button class="button" id="endConnectionButton" disabled>End Connection</button>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+<script>
+    var map = L.map('map').setView([51.0447, -114.0719], 11);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    var topic = 'ENGO551_SAHIL/MY_TEMPERATURE'; // Set to the MQTT topic you want to publish messages to
+    var clientId = "client_" + Math.random().toString(36).substr(2, 9);
+    var client;
+
+    function startConnection() {
+        document.getElementById("connectionInfo").style.display = "none";
+        document.getElementById("buttonContainer").style.display = "flex";
+
+        client = new Paho.MQTT.Client("test.mosquitto.org", Number(8080), clientId);
+
+        var connectOptions = {
+            onSuccess: function () {
+                console.log('Connected to MQTT broker');
+                document.getElementById("startSendingLocationButton").disabled = false;
+                document.getElementById("endConnectionButton").disabled = false;
+                subscribeToTopic();
+            },
+            onFailure: function (error) {
+                console.error('MQTT connection error:', error.errorMessage);
+            }
+        };
+
+        client.connect(connectOptions);
+    }
+
+    function endConnection() {
+        try {
+            client.disconnect();
+        } catch (error) {
+            console.error('Error disconnecting from MQTT broker:', error);
+        } finally {
+            document.getElementById("connectionInfo").style.display = "block";
+            document.getElementById("buttonContainer").style.display = "none";
+            clearMarkers();
+
+            // Reset button states
+            document.getElementById("startConnectionButton").disabled = false;
+            document.getElementById("startSendingLocationButton").disabled = true;
+            document.getElementById("stopSendingLocationButton").disabled = true;
+            document.getElementById("endConnectionButton").disabled = true;
+        }
+    }
+
+    function startSendingLocation() {
+        getLocation();
+        setInterval(getLocation, 5000); // Update location every 5 seconds
+        document.getElementById("startSendingLocationButton").disabled = true;
+        document.getElementById("stopSendingLocationButton").disabled = false;
+    }
+
+    function stopSendingLocation() {
+        clearInterval();
+        document.getElementById("startSendingLocationButton").disabled = false;
+        document.getElementById("stopSendingLocationButton").disabled = true;
+    }
+
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(updateMapLocation);
+        } else {
+            alert('Geolocation is not supported by this browser.');
+        }
+    }
+
+    function updateMapLocation(position) {
+        var latitude = position.coords.latitude;
+        var longitude = position.coords.longitude;
+        var timestamp = new Date().toISOString();
+        var temperature = getRandomTemperature(-40, 40);
+
+        map.setView([latitude, longitude], 15);
+
+        var geoJsonMessage = {
+            type: "Feature",
+            geometry: {
+                type: "Point",
+                coordinates: [longitude, latitude]
+            },
+            properties: {
+                temperature: temperature,
+                timestamp: timestamp
+            }
+        };
+
+        var messageObject = new Paho.MQTT.Message(JSON.stringify(geoJsonMessage));
+        messageObject.destinationName = topic;
+        client.send(messageObject);
+        console.log(`Message published to topic ${topic}:`, JSON.stringify(geoJsonMessage));
+
+        L.marker([latitude, longitude]).addTo(map)
+            .bindPopup(`Temperature: ${temperature}°C<br>Coordinates: ${latitude}, ${longitude}<br>Timestamp: ${timestamp}`)
+            .openPopup();
+    }
+
+    function subscribeToTopic() {
+        client.subscribe(topic);
+        console.log('Subscribed to topic:', topic);
+
+        client.onMessageArrived = function (message) {
+            var payload = message.payloadString;
+            console.log('Message received:', payload);
+
+            try {
+                var geoJsonMessage = JSON.parse(payload);
+
+                if (geoJsonMessage.type === "Feature" && geoJsonMessage.geometry && geoJsonMessage.geometry.type === "Point") {
+                    var coordinates = geoJsonMessage.geometry.coordinates;
+                    var temperature = geoJsonMessage.properties.temperature;
+                    var timestamp = geoJsonMessage.properties.timestamp;
+
+                    L.marker([coordinates[1], coordinates[0]]).addTo(map)
+                        .bindPopup(`Received Temperature: ${temperature}°C<br>Coordinates: ${coordinates[1]}, ${coordinates[0]}<br>Timestamp: ${timestamp}`)
+                        .openPopup();
+                }
+            } catch (error) {
+                console.error('Error parsing GeoJSON message:', error);
+            }
+        };
+    }
+
+    function clearMarkers() {
+        map.eachLayer(function (layer) {
+            if (layer instanceof L.Marker) {
+                map.removeLayer(layer);
+            }
+        });
+    }
+
+    function getRandomTemperature(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    // Button event listeners
+    document.getElementById("startConnectionButton").addEventListener("click", startConnection);
+    document.getElementById("startSendingLocationButton").addEventListener("click", startSendingLocation);
+    document.getElementById("stopSendingLocationButton").addEventListener("click", stopSendingLocation);
+    document.getElementById("endConnectionButton").addEventListener("click", endConnection);
+
+</script>
+
+</body>
+</html>
