@@ -89,7 +89,7 @@
     // Convert the port to a number
     var port = 8084;
 
-    client = new Paho.MQTT.Client("wss:/broker.emqx.io", Number(8084), clientId);
+    client = new Paho.MQTT.Client("wss://broker.emqx.io", port, clientId);
 
     var connectOptions = {
         onSuccess: function () {
@@ -105,6 +105,7 @@
 
     client.connect(connectOptions);
 }
+
 
 
 
