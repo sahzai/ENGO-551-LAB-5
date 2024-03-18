@@ -93,6 +93,8 @@
     // Manually create the WebSocket using the wss protocol
     var wsProtocol = "wss:";
     var wsURL = `${wsProtocol}//${brokerUrl}:${port}/mqtt`;
+
+    // WebSocket options
     var wsOptions = {
         keepalive: 60,
         clientId: clientId,
@@ -110,9 +112,10 @@
         rejectUnauthorized: false
     };
 
-    var webSocket = new WebSocket(wsURL, wsOptions);
+    // Create the WebSocket
+    var webSocket = new WebSocket(wsURL, ["mqtt"], wsOptions);
 
-    // Pass the WebSocket to the Paho MQTT client
+    // Create the Paho MQTT client
     client = new Paho.MQTT.Client(webSocket, clientId);
 
     var connectOptions = {
@@ -129,7 +132,6 @@
 
     client.connect(connectOptions);
 }
-
 
 
 
