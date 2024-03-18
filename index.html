@@ -89,7 +89,7 @@
     var port = 8084;
 
     // Corrected MQTT broker URL format to use wss:// for secure WebSocket connection
-    client = new Paho.MQTT.Client("wss://broker.emqx.io", port, "/mqtt", clientId);
+    client = new Paho.MQTT.Client("broker.emqx.io", port, "/mqtt", clientId);
 
     var connectOptions = {
         onSuccess: function () {
